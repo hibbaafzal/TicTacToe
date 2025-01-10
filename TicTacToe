@@ -1,0 +1,278 @@
+ 
+package com.ps;
+
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.InputMismatchException;
+import java.util.Scanner;
+import java.util.Set;
+
+public class TicTacToe {
+    private static final int SIZE = 5;
+    private char[][] board = new char[5][5];
+    private int playerCount;
+    private char[] symbols;
+    private FileWriter logger;
+
+    public TicTacToe(int playerCount, char[] symbols) {
+        this.playerCount = playerCount;
+        this.symbols = symbols;
+        this.initializeBoard();
+
+        try {
+            this.logger = new FileWriter("game_log.txt", true);
+        } catch (IOException var4) {
+            IOException e = var4;
+            System.out.println("Error initializing logger: " + e.getMessage());
+        }
+
+    }
+
+    private void initializeBoard() {
+        for(int i = 0; i < 5; ++i) {
+            for(int j = 0; j < 5; ++j) {
+                this.board[i][j] = '.';
+            }
+        }
+
+    }
+
+    private void printBoard() {
+        System.out.print("  ");
+
+        int i;
+        for(i = 0; i < 5; ++i) {
+            System.out.print("" + i + " ");
+        }
+
+        System.out.println();
+
+        for(i = 0; i < 5; ++i) {
+            System.out.print("" + i + " ");
+
+            for(int j = 0; j < 5; ++j) {
+                System.out.print(this.board[i][j] + " ");
+            }
+
+            System.out.println();
+        }
+
+    }
+
+    private boolean placeSymbol(int row, int col, char symbol) {
+        if (row >= 0 && row < 5 && col >= 0 && col < 5) {
+            if (this.board[row][col] != '.') {
+                System.out.println("Invalid move: The box at (" + row + ", " + col + ") is already occupied.");
+                return false;
+            } else {
+                this.board[row][col] = symbol;
+
+                try {
+                    this.logger.write("Move by " + symbol + " at (" + row + ", " + col + ")\n");
+                } catch (IOException var5) {
+                    IOException e = var5;
+                    System.out.println("Error logging move: " + e.getMessage());
+                }
+
+                return true;
+            }
+        } else {
+            System.out.println("Invalid input: out of the board's bounds.");
+            return false;
+        }
+    }
+
+    private boolean checkWinner(char symbol) {
+        int i;
+        int j;
+        for(i = 0; i < 5; ++i) {
+            for(j = 0; j < 3; ++j) {
+                if (this.board[i][j] == symbol && this.board[i][j + 1] == symbol && this.board[i][j + 2] == symbol || this.board[j][i] == symbol && this.board[j + 1][i] == symbol && this.board[j + 2][i] == symbol) {
+                    return true;
+                }
+            }
+        }
+
+        for(i = 0; i < 3; ++i) {
+            for(j = 0; j < 3; ++j) {
+                if (this.board[i][j] == symbol && this.board[i + 1][j + 1] == symbol && this.board[i + 2][j + 2] == symbol || this.board[i][j + 2] == symbol && this.board[i + 1][j + 1] == symbol && this.board[i + 2][j] == symbol) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private boolean boardFull() {
+        for(int i = 0; i < 5; ++i) {
+            for(int j = 0; j < 5; ++j) {
+                if (this.board[i][j] == '.') {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    public void playGame() {
+        Scanner scanner = new Scanner(System.in);
+        int currentPlayer = 0;
+        int round = 1;
+        boolean gameEnded = false;
+
+        while(!gameEnded) {
+            System.out.println("Round " + round);
+            this.initializeBoard();
+            boolean roundEnded = false;
+
+            while(!roundEnded) {
+                this.printBoard();
+                System.out.println("Player " + (currentPlayer + 1) + " (" + this.symbols[currentPlayer] + ") turn:");
+                int row = -1;
+                int col = -1;
+                boolean isRowVal = false;
+                boolean isColVal = false;
+
+                while(!isRowVal) {
+                    System.out.print("Make a move: \nEnter row number (0-4): ");
+
+                    try {
+                        row = scanner.nextInt();
+                        if (row >= 0 && row < 5) {
+                            isRowVal = true;
+                        } else {
+                            System.out.println("Invalid input. Try again");
+                        }
+                    } catch (InputMismatchException var13) {
+                        System.out.println("Invalid input, enter numbers only.");
+                        scanner.nextLine();
+                    }
+                }
+
+                while(!isColVal) {
+                    System.out.print("Enter col number (0-4): ");
+
+                    try {
+                        col = scanner.nextInt();
+                        if (col >= 0 && col < 5) {
+                            isColVal = true;
+                        } else {
+                            System.out.println("Invalid input. Try again");
+                        }
+                    } catch (InputMismatchException var14) {
+                        System.out.println("Invalid input, enter numbers only.");
+                        scanner.nextLine();
+                    }
+                }
+
+                if (this.placeSymbol(row, col, this.symbols[currentPlayer])) {
+                    if (this.checkWinner(this.symbols[currentPlayer])) {
+                        this.printBoard();
+                        System.out.println("Player " + (currentPlayer + 1) + " (" + this.symbols[currentPlayer] + ") wins Round " + round + ".");
+                        roundEnded = true;
+
+                        try {
+                            this.logger.write("Player " + (currentPlayer + 1) + " (" + this.symbols[currentPlayer] + ") wins!\n");
+                        } catch (IOException var12) {
+                            IOException e = var12;
+                            System.out.println("Error logging result: " + e.getMessage());
+                        }
+                    } else if (this.boardFull()) {
+                        this.printBoard();
+                        System.out.println("The round is a draw. All cells are full.");
+                        roundEnded = true;
+                    } else {
+                        currentPlayer = (currentPlayer + 1) % this.playerCount;
+                    }
+                }
+            }
+
+            if (roundEnded) {
+                System.out.print("Do you want to play another round? (Y/N): ");
+                String response = scanner.next();
+                if (response.equalsIgnoreCase("y")) {
+                    ++round;
+                    System.out.println("Next Round!");
+                } else {
+                    gameEnded = true;
+                    System.out.println("Thanks for playing!");
+                }
+            }
+        }
+
+        try {
+            this.logger.close();
+        } catch (IOException var11) {
+            System.out.println("Error closing logger: " + var11.getMessage());
+        }
+
+        scanner.close();
+    }
+
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("-----------------  Welcome to Tic-Tac-Toe!  -----------------");
+        System.out.println("Rules:\n1. Enter the number of players. (2 or more).\n2. Choose a letter per player, no duplicates.\n3. The winner is determined by whoever gets 3 in a row, either horizontally, vertically, or diagonally.\n");
+
+        int numPlayers;
+        do {
+            System.out.print("Enter the number of players (2 or more): ");
+
+            while(!scanner.hasNextInt()) {
+                System.out.println("Invalid input. Please enter a number 2 or more.");
+                scanner.next();
+            }
+
+            numPlayers = scanner.nextInt();
+            scanner.nextLine();
+            if (numPlayers < 2) {
+                System.out.println("Please enter 2 or more players.");
+            }
+        } while(numPlayers < 2);
+
+        char[] symbols = new char[numPlayers];
+        Set<Character> usedSymbols = new HashSet();
+
+        int i;
+        label56:
+        for(i = 0; i < numPlayers; ++i) {
+            boolean valSymbol = false;
+
+            while(true) {
+                while(true) {
+                    if (valSymbol) {
+                        continue label56;
+                    }
+
+                    System.out.print("Enter symbol for Player " + (i + 1) + ": ");
+                    String input = scanner.nextLine();
+                    if (!input.isEmpty() && input.length() == 1 && !usedSymbols.contains(input.charAt(0))) {
+                        symbols[i] = input.charAt(0);
+                        usedSymbols.add(input.charAt(0));
+                        valSymbol = true;
+                    } else if (input.isEmpty()) {
+                        System.out.println("No input detected. Try again.");
+                    } else if (input.length() != 1) {
+                        System.out.println("Please enter a single character. Try again.");
+                    } else if (usedSymbols.contains(input.charAt(0))) {
+                        System.out.println("Duplicate symbol. Try again.");
+                    }
+                }
+            }
+        }
+
+        System.out.println("\nSymbols for players are:");
+
+        for(i = 0; i < symbols.length; ++i) {
+            System.out.println("Player " + (i + 1) + ": " + symbols[i]);
+        }
+
+        System.out.println("\nLet's begin with the game! Enjoy!");
+        TicTacToe game = new TicTacToe(symbols.length, symbols);
+        game.playGame();
+        scanner.close();
+    }
+}
