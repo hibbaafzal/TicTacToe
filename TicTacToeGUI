@@ -1,0 +1,433 @@
+package com.ps;
+
+import java.awt.BorderLayout;
+import java.awt.Font;
+import java.awt.GridLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+
+public class TicTacToeGUI extends JFrame {
+    private int SIZE;
+    private char[][] board;
+    private int playerCount;
+    private char[] symbols;
+    private int[] wins;
+    private int currentPlayer = 0;
+    private JButton[][] buttons;
+    private JLabel statusLabel = new JLabel();
+    private boolean gameEnded = false;
+    private int winLength;
+    private FileWriter logger;
+
+    public TicTacToeGUI() {
+        this.setTitle("Tic-Tac-Toe");
+        this.setSize(600, 600);
+        this.setDefaultCloseOperation(3);
+        this.setLayout(new BorderLayout());
+        this.addWindowListener(new WindowAdapter() {
+            public void windowClosing(WindowEvent e) {
+                TicTacToeGUI.this.cancelGame();
+            }
+        });
+        this.showWelcomeMessage();
+        this.SIZE = this.getBoardSize();
+        this.board = new char[this.SIZE][this.SIZE];
+        this.buttons = new JButton[this.SIZE][this.SIZE];
+        JPanel boardPanel = new JPanel(new GridLayout(this.SIZE, this.SIZE));
+
+        for(int i = 0; i < this.SIZE; ++i) {
+            for(int j = 0; j < this.SIZE; ++j) {
+                this.buttons[i][j] = new JButton("");
+                this.buttons[i][j].setFont(new Font("Arial", 0, 40));
+                this.buttons[i][j].addActionListener(new ButtonClickListener(i, j));
+                boardPanel.add(this.buttons[i][j]);
+            }
+        }
+
+        JPanel controlPanel = new JPanel();
+        JButton cancelButton = new JButton("Cancel Game");
+        cancelButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                TicTacToeGUI.this.cancelGame();
+            }
+        });
+        controlPanel.add(cancelButton);
+        this.add(boardPanel, "Center");
+        this.add(this.statusLabel, "South");
+        this.add(controlPanel, "South");
+        this.initializeGame();
+        this.setVisible(true);
+    }
+
+    private void showWelcomeMessage() {
+        String message = "Welcome to Tic-Tac-Toe!\n\nRules:\n1. Choose board size! (Min 5x5.)\n2. Enter the number of players! (Min. 2.)\n3. Choose a letter per player, no duplicates.\n4. Enter the number of symbols in a row needed to win.\n5. The winner is determined by the player to get the specified number in a row, either horizontally, vertically, or diagonally.\n";
+        JOptionPane.showMessageDialog(this, message, "Welcome to Tic-Tac-Toe!", 1);
+    }
+
+    private int getBoardSize() {
+        int size = 0;
+        boolean validInput = false;
+
+        while(!validInput) {
+            String input = JOptionPane.showInputDialog(this, "Enter the board size. Min. 5x5: ");
+            if (input == null) {
+                this.cancelGame();
+            }
+
+            if (input.matches("\\d+")) {
+                size = Integer.parseInt(input);
+                if (size >= 5) {
+                    validInput = true;
+                } else {
+                    JOptionPane.showMessageDialog(this, "Board size must be at least 5x5.", "Invalid Input", 0);
+                }
+            } else {
+                JOptionPane.showMessageDialog(this, "Invalid input. Please enter a number.", "Invalid Input", 0);
+            }
+        }
+
+        return size;
+    }
+
+    private void initializeGame() {
+        this.playerCount = this.getPlayerCount();
+        this.symbols = new char[this.playerCount];
+        this.wins = new int[this.playerCount];
+        Set<Character> usedSymbols = new HashSet();
+
+        label48:
+        for(int i = 0; i < this.playerCount; ++i) {
+            boolean validSymbol = false;
+
+            while(true) {
+                while(true) {
+                    if (validSymbol) {
+                        continue label48;
+                    }
+
+                    String input = JOptionPane.showInputDialog(this, "Enter symbol for Player " + (i + 1) + ": ");
+                    if (input == null) {
+                        this.cancelGame();
+                    }
+
+                    if (input != null && input.length() == 1 && Character.isLetterOrDigit(input.charAt(0))) {
+                        char symbol = Character.toUpperCase(input.charAt(0));
+                        if (!usedSymbols.contains(symbol)) {
+                            this.symbols[i] = symbol;
+                            usedSymbols.add(symbol);
+                            validSymbol = true;
+                        } else {
+                            JOptionPane.showMessageDialog(this, "Symbol already used. Try again.", "Invalid Input", 0);
+                        }
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Please enter a single letter or digit. Try again.", "Invalid Input", 0);
+                    }
+                }
+            }
+        }
+
+        JOptionPane.showMessageDialog(this, "Symbols for players are:\n" + this.getPlayerSymbols(), "Player Symbols", 1);
+
+        try {
+            this.logger = new FileWriter("game_log.txt", true);
+        } catch (IOException var6) {
+            JOptionPane.showMessageDialog(this, "Error initializing logger: " + var6.getMessage(), "Logger Error", 0);
+        }
+
+        this.winLength = this.getWinLength();
+        this.initializeBoard();
+        char var10001 = this.symbols[this.currentPlayer];
+        this.statusLabel.setText("Player 1 (" + var10001 + ")'s turn");
+    }
+
+    private int getPlayerCount() {
+        int numPlayers = 0;
+        boolean validInput = false;
+
+        while(true) {
+            while(!validInput) {
+                String input = JOptionPane.showInputDialog(this, "Enter the number of players. Min 2: ");
+                if (input == null) {
+                    this.cancelGame();
+                }
+
+                if (input != null && input.matches("\\d+")) {
+                    numPlayers = Integer.parseInt(input);
+                    if (numPlayers >= 2) {
+                        validInput = true;
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Please enter 2 or more players.", "Invalid Input", 0);
+                    }
+                } else {
+                    JOptionPane.showMessageDialog(this, "Invalid input. Please enter a number 2 or more.", "Invalid Input", 0);
+                }
+            }
+
+            return numPlayers;
+        }
+    }
+
+    private String getPlayerSymbols() {
+        StringBuilder sb = new StringBuilder();
+
+        for(int i = 0; i < this.symbols.length; ++i) {
+            sb.append("Player ").append(i + 1).append(": ").append(this.symbols[i]).append("\n");
+        }
+
+        return sb.toString();
+    }
+
+    private int getWinLength() {
+        int winLen = 3;
+        boolean validInput = false;
+
+        while(true) {
+            while(true) {
+                while(!validInput) {
+                    String input = JOptionPane.showInputDialog(this, "Enter the number of symbols in a row needed to win. Min. 3.: ");
+                    if (input == null) {
+                        this.cancelGame();
+                    }
+
+                    if (input != null && input.matches("\\d+")) {
+                        winLen = Integer.parseInt(input);
+                        if (winLen >= 3 && winLen <= this.SIZE) {
+                            validInput = true;
+                        } else {
+                            JOptionPane.showMessageDialog(this, "Please enter the number 3 and " + this.SIZE, "Invalid Input", 0);
+                        }
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Invalid input. Please enter a number between 2 and " + this.SIZE, "Invalid Input", 0);
+                    }
+                }
+
+                return winLen;
+            }
+        }
+    }
+
+    private void initializeBoard() {
+        for(int i = 0; i < this.SIZE; ++i) {
+            for(int j = 0; j < this.SIZE; ++j) {
+                this.board[i][j] = '.';
+                this.buttons[i][j].setText("");
+                this.buttons[i][j].setEnabled(true);
+            }
+        }
+
+        this.gameEnded = false;
+        this.currentPlayer = 0;
+    }
+
+    private void updateBoard(int row, int col, char symbol) {
+        this.board[row][col] = symbol;
+        this.buttons[row][col].setText(String.valueOf(symbol));
+        this.buttons[row][col].setEnabled(false);
+
+        try {
+            this.logger.write("Move by " + symbol + " at (" + row + ", " + col + ")\n");
+        } catch (IOException var5) {
+            IOException e = var5;
+            JOptionPane.showMessageDialog(this, "Error logging move: " + e.getMessage(), "Logger Error", 0);
+        }
+
+    }
+
+    private boolean checkWinner(char symbol) {
+        int i;
+        int j;
+        boolean win;
+        int k;
+        for(i = 0; i < this.SIZE; ++i) {
+            for(j = 0; j <= this.SIZE - this.winLength; ++j) {
+                win = true;
+
+                for(k = 0; k < this.winLength; ++k) {
+                    if (this.board[i][j + k] != symbol) {
+                        win = false;
+                        break;
+                    }
+                }
+
+                if (win) {
+                    return true;
+                }
+            }
+        }
+
+        for(i = 0; i <= this.SIZE - this.winLength; ++i) {
+            for(j = 0; j < this.SIZE; ++j) {
+                win = true;
+
+                for(k = 0; k < this.winLength; ++k) {
+                    if (this.board[i + k][j] != symbol) {
+                        win = false;
+                        break;
+                    }
+                }
+
+                if (win) {
+                    return true;
+                }
+            }
+        }
+
+        for(i = 0; i <= this.SIZE - this.winLength; ++i) {
+            for(j = 0; j <= this.SIZE - this.winLength; ++j) {
+                win = true;
+
+                for(k = 0; k < this.winLength; ++k) {
+                    if (this.board[i + k][j + k] != symbol) {
+                        win = false;
+                        break;
+                    }
+                }
+
+                if (win) {
+                    return true;
+                }
+            }
+        }
+
+        for(i = 0; i <= this.SIZE - this.winLength; ++i) {
+            for(j = this.winLength - 1; j < this.SIZE; ++j) {
+                win = true;
+
+                for(k = 0; k < this.winLength; ++k) {
+                    if (this.board[i + k][j - k] != symbol) {
+                        win = false;
+                        break;
+                    }
+                }
+
+                if (win) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private boolean boardFull() {
+        for(int i = 0; i < this.SIZE; ++i) {
+            for(int j = 0; j < this.SIZE; ++j) {
+                if (this.board[i][j] == '.') {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private void nextRound() {
+        int response = JOptionPane.showConfirmDialog(this, "Do you want to play another round?", "Next Round", 0);
+        if (response == 0) {
+            this.initializeBoard();
+            char var10001 = this.symbols[this.currentPlayer];
+            this.statusLabel.setText("Player 1 (" + var10001 + ")'s turn");
+        } else {
+            this.displayWinner();
+            this.cancelGame();
+        }
+
+    }
+
+    private void cancelGame() {
+        if (!this.gameEnded) {
+            this.gameEnded = true;
+
+            try {
+                if (this.logger != null) {
+                    this.logger.close();
+                }
+            } catch (IOException var2) {
+                IOException e = var2;
+                JOptionPane.showMessageDialog(this, "Error closing logger: " + e.getMessage(), "Logger Error", 0);
+            }
+
+            JOptionPane.showMessageDialog(this, "Game canceled. Thank you for playing!", "Game Canceled", 1);
+        }
+
+        this.dispose();
+    }
+
+    private void displayWinner() {
+        int maxWins = 0;
+        int winnerIndex = -1;
+        boolean tie = false;
+
+        for(int i = 0; i < this.wins.length; ++i) {
+            if (this.wins[i] > maxWins) {
+                maxWins = this.wins[i];
+                winnerIndex = i;
+                tie = false;
+            } else if (this.wins[i] == maxWins) {
+                tie = true;
+            }
+        }
+
+        if (tie) {
+            JOptionPane.showMessageDialog(this, "The game ends in a tie!", "Game Over", 1);
+        } else {
+            JOptionPane.showMessageDialog(this, "The winner is Player " + (winnerIndex + 1) + " (" + this.symbols[winnerIndex] + ") with " + maxWins + " wins!", "Game Over", 1);
+        }
+
+    }
+
+    private class ButtonClickListener implements ActionListener {
+        private int row;
+        private int col;
+
+        public ButtonClickListener(int row, int col) {
+            this.row = row;
+            this.col = col;
+        }
+
+        public void actionPerformed(ActionEvent e) {
+            if (!TicTacToeGUI.this.gameEnded) {
+                if (TicTacToeGUI.this.board[this.row][this.col] == '.') {
+                    TicTacToeGUI.this.updateBoard(this.row, this.col, TicTacToeGUI.this.symbols[TicTacToeGUI.this.currentPlayer]);
+                    int var10001;
+                    if (TicTacToeGUI.this.checkWinner(TicTacToeGUI.this.symbols[TicTacToeGUI.this.currentPlayer])) {
+                        var10001 = TicTacToeGUI.this.currentPlayer + 1;
+                        TicTacToeGUI.this.statusLabel.setText("Player " + var10001 + " (" + TicTacToeGUI.this.symbols[TicTacToeGUI.this.currentPlayer] + ") wins!");
+                        int var10002 = TicTacToeGUI.this.wins[TicTacToeGUI.this.currentPlayer]++;
+                        TicTacToeGUI.this.gameEnded = true;
+
+                        try {
+                            var10001 = TicTacToeGUI.this.currentPlayer + 1;
+                            TicTacToeGUI.this.logger.write("Player " + var10001 + " (" + TicTacToeGUI.this.symbols[TicTacToeGUI.this.currentPlayer] + ") wins!\n");
+                        } catch (IOException var3) {
+                            IOException ex = var3;
+                            JOptionPane.showMessageDialog(TicTacToeGUI.this, "Error logging result: " + ex.getMessage(), "Logger Error", 0);
+                        }
+
+                        TicTacToeGUI.this.nextRound();
+                    } else if (TicTacToeGUI.this.boardFull()) {
+                        TicTacToeGUI.this.statusLabel.setText("The game is a draw.");
+                        TicTacToeGUI.this.gameEnded = true;
+                        TicTacToeGUI.this.nextRound();
+                    } else {
+                        TicTacToeGUI.this.currentPlayer = (TicTacToeGUI.this.currentPlayer + 1) % TicTacToeGUI.this.playerCount;
+                        var10001 = TicTacToeGUI.this.currentPlayer + 1;
+                        TicTacToeGUI.this.statusLabel.setText("Player " + var10001 + " (" + TicTacToeGUI.this.symbols[TicTacToeGUI.this.currentPlayer] + ")'s turn");
+                    }
+                }
+
+            }
+        }
+    }
+}
